@@ -1,51 +1,145 @@
 #!/usr/bin/env python3
 #print("2nd line of code!")
 
+# TODO:
+# remove games with *number* moves.
+# remove games with *syzygy adjudication*
+# remove games with *tons of book moves*
+
 import sys
 import re
 
 def main():
     # print("arguements %s " % sys.argv)
-    # set to false to only have book moves.
-    keep_eval_depth_time = True 
+    
+    # set to false to remove everything but book moves
+    keep_eval_depth_time = False 
+    if keep_eval_depth_time:
+        print("Keeping evaluation features.")
+    else:
+        print("Removing evaluation features.")
+        
     # set to true for keeping book moves.
     keep_book_moves = True 
+    if keep_book_moves:
+        print("Keeping book moves.")
+    else:
+        print("Removing book moves.")
+        
     # keeps result e.g. keeps "White mates}" or other result within brackets
     keep_bracketed_result = True
+    if keep_bracketed_result:
+        print("Keeping bracketed result.")
+    else:
+        print("Removing the bracketed cause of result, but not the actual result.")
+        
+    # 0 keeps existing new line/return features, 1 makes output PGN nicer.
+    # 2 gets rid of the returns within games and replaces them with spaces.
+    # 3 gets rid of all returns.
+    keep_features = 0
+    if keep_features == 0:
+        print("Keeping existing return/enter/new-line features.")
+    elif keep_features == 1:
+        print("Making PGNs look neater by detecting move numbers.")
+    elif keep_features == 2:
+        print("Removing existing return/enter/new-line features near moves.")
+    elif keep_features == 3:
+        print("Removing all existing return/enter/new-line features.")
+        
+    # set to true for keeping time losses.
+    keep_time_losses = True
+    if keep_time_losses:
+        print("Keeping time losses.")
+    else:
+        print("Removing time losses.")
+        
     file_name_list = [] # not sure what this is for
+    
     file_lines = str(sys.argv) #not sure what i put this here for either
     for x in range(1,len(sys.argv)): #sys.argv[0] is the script name
+        
         PGN_path = sys.argv[x] # should be a single commandline argument/object
         new_pathname =  file_rename(str(sys.argv[x]))
-        print("Gonna read out this: " + PGN_path + "Gonna print out to that: " + new_pathname)
-        if PGN_path != 'PGN_simplifier.py' or 'PGN_to_scoreboard.py':
+        
+        print("Gonna read out this: " + PGN_path + "\n Gonna print out to that: " + new_pathname)
+        if PGN_path != 'PGN_simplifier.py' or 'PGN_to_scoreboard.py': # trying not to overwrite this file plz thx
             file_name_list.append(PGN_path) # not sure what this is doing but ok
             file_string = I_READ(PGN_path) # it is good to read
-            print("Read file!")
-        i = 0
+            print("Reading file!")
+            
+        i = 0 # character index
         bracket_true = 0 
-        print("I'm here!")
+        # print("I'm here!")
         # when 0, it is outside of brackets. when 1, it is inside of brackets. 
         # when 2, it is inside of brackets, and the first comma.
         new_file_string = "" # what the new file will have
+        moves_count = 0 #counts how many moves there are in a game.
+        # !!!! WARNING !!!!: moves are counted based upon seeing the "{" symbol. 
+        # this may cause issues when using this function in uncommented domain.
+        
         if keep_eval_depth_time:
             while i < len(file_string):
-                if bracket_true == 0 and file_string[i:i+6] == "{book}": #keeps book moves
+                if file_string[i] == "\n" or file_string == "\r":
+                    if keep_features == 0:
+                        new_file_string += file_string[i]
+                        i += 1
+                    elif keep_features == 1:
+                        if moves_count % 3 == 0:
+                            new_file_string += file_string[i]
+                            i += 1
+                        else: # when the number of moves is not yet divisible by 3
+                            new_file_string += " "
+                            i += 1
+                    elif keep_features == 2 and moves_count != 0:
+                        new_file_string += " "
+                        i += 1
+                    elif keep_features == 3:
+                        new_file_string += " "
+                        i += 1
+                    else: #this probably shouldn't trigger when reading a game
+                        new_file_string += file_string[i]
+                        i += 1
+                elif bracket_true == 0 and file_string[i:i+6] == "{book}": #keeps book moves
                     if keep_book_moves == True:    
-                        new_file_string += file_string[i:i+6]
+                        new_file_string += "{book} "
                     i += 7
                 elif bracket_true == 0 and file_string[i] == "{": 
                     bracket_true = 1
+                    moves_count += 1
                 elif bracket_true == 1 and file_string[i] == ",":
                     bracket_true = 2
                 elif bracket_true > 0 and file_string[i] == "}":
+                    if keep_features == 1:
+                        if moves_count % 3 == 0:
+                            new_file_string += "}\n"
+                            i += 2
+                        else:
+                            new_file_string += "} "
+                            i += 2
+                    elif keep_features == 2:
+                        new_file_string += "} "
+                        i += 2
+                    else:
+                        new_file_string += file_string[i]
+                        i += 1    
                     bracket_true = 1
                 # this upcoming elif is kinda hacky.
+                elif bracket_true == 0 and file_string[i:i+28] == "[Termination \"time forfeit\"]":
+                    if keep_time_losses == True:
+                        new_file_string += file_string[i:i+28]
+                        i += 29
+                    else: # need to delete this game if it's a time forfeit.
+                        while(): # look for the beginning of the game.
+                            break
+                        while(): # skip to the end of the game and make sure not to pass over the result.
+                            break
                 elif bracket_true > 0:
-                    if keep_bracketed_result == True and (file_string[i:i+12] == "White mates}" or file_string[i:i+12] == "Black mates}" or file_string[i:i+31] == "Draw by adjudication: SyzygyTB}" or file_string[i:i+25] == "Draw by fifty moves rule}" or file_string[i:i+21] == "Draw by adjudication}" or file_string[i:i+26] == "Draw by 3-fold repetition}" or file_string[i:i+18] == "Draw by stalemate}"):
+                    if keep_bracketed_result == True and (file_string[i:i+12] == "White mates}" or file_string[i:i+12] == "Black mates}" or file_string[i:i+31] == "Draw by adjudication: SyzygyTB}" or file_string[i:i+25] == "Draw by fifty moves rule}" or file_string[i:i+21] == "Draw by adjudication}" or file_string[i:i+26] == "Draw by 3-fold repetition}" or file_string[i:i+18] == "Draw by stalemate}" or file_string[i:i+20] == "Black loses on time}" or file_string[i:i+20] == "White loses on time}"):
                         new_file_string += ", " + file_string[i:i+40]
-                        i += 40
                         bracket_true = 0
+                        moves_count = 0
+                elif (file_string[i:i+3] == "1-0" or file_string[i:i+3] == "0-1" or file_string[i:i+7] == "1/2-1/2"):
+                    moves_count == 0
                 try:
                     if bracket_true < 2: #differently constructed in the other loop
                         new_file_string += file_string[i]
@@ -55,25 +149,59 @@ def main():
                     print(i)
                 i += 1
         else: #excluding evaluations
+            # print("starting loop") # hmm
             while i < len(file_string):
-                if bracket_true == 0 and file_string[i:i+6] == "{book}": #removable if it breaks stuff i think
+                if file_string[i] == "\n" or file_string == "\r":
+                    if keep_features == 0:
+                        new_file_string += file_string[i]
+                    elif keep_features == 1:
+                        new_file_string += file_string[i]
+                elif bracket_true == 0 and file_string[i:i+6] == "{book}": #removable if it breaks stuff i think
                     if keep_book_moves == True:    
-                        new_file_string += file_string[i:i+6]
+                        new_file_string += "{book} "
                     i += 7
-                elif bracket_true == 1 and file_string[i] == "{":
+                    moves_count += 1
+                elif bracket_true == 0 and file_string[i] == "{":
                     bracket_true = 1
+                    moves_count += 1
+                    # print("Yay! it's reading something.")
                 elif bracket_true > 0 and file_string[i] == "}":
+                    if keep_features == 1:
+                        if moves_count % 3 == 0:
+                            new_file_string += "}\n"
+                            i += 2
+                        else:
+                            new_file_string += "} "
+                            i += 2
+                    elif keep_features == 2:
+                        new_file_string += "} "
+                        i += 2
+                    else:
+                        new_file_string += file_string[i]
+                        i += 1
                     bracket_true = 0
                     i += 1 #making sure to avoid reading the open parenthesis cuz we don't want anything other than "book" comments, maybe.
+                    moves_count += 1
                 #hacky elif
+                elif bracket_true == 0 and file_string[i:i+28] == "[Termination \"time forfeit\"]":
+                    if keep_time_losses == True:
+                        new_file_string += file_string[i:i+28]
+                        i += 29
+                    else: # need to delete this game if it's a time forfeit.
+                        while(): # look for the beginning of the game.
+                            break
+                        while(): # skip to the end of the game and make sure not to pass over the result.
+                            break
                 elif bracket_true > 0:
-                    if keep_bracketed_result == True and (file_string[i:i+12] == "White mates}" or file_string[i:i+12] == "Black mates}" or file_string[i:i+31] == "Draw by adjudication: SyzygyTB}" or file_string[i:i+25] == "Draw by fifty moves rule}" or file_string[i:i+21] == "Draw by adjudication}" or file_string[i:i+26] == "Draw by 3-fold repetition}" or file_string[i:i+18] == "Draw by stalemate}"):
-                        new_file_string += ", " + file_string[i:i+40]
+                    if keep_bracketed_result == True and (file_string[i:i+12] == "White mates}" or file_string[i:i+12] == "Black mates}" or file_string[i:i+31] == "Draw by adjudication: SyzygyTB}" or file_string[i:i+25] == "Draw by fifty moves rule}" or file_string[i:i+21] == "Draw by adjudication}" or file_string[i:i+26] == "Draw by 3-fold repetition}" or file_string[i:i+18] == "Draw by stalemate}" or file_string[i:i+20] == "Black loses on time}" or file_string[i:i+20] == "White loses on time}"):
+                        new_file_string += "{" + file_string[i:i+40]
                         i += 40
                         bracket_true = 0
+                        # print("bug testing")
                 try:
                     if bracket_true == 0: #differently constructed in the other loop
                         new_file_string += file_string[i]
+                        # print(file_string[i]) # incredibly spammy
                 except:
                     break
                 if (i % 100000) == 0:
@@ -99,7 +227,7 @@ def is_digit(string): # returns a boolean whether the string is a digit or not
         return False
 
 def file_rename(a_pathname): #renames the pathname to have the filename include a "-clean" tag.
-    add_string = "-nicer"
+    add_string = "-nicest"
     new_pathname_string = ""
     i = 0
     #print("making_file_rename")
